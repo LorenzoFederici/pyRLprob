@@ -144,6 +144,7 @@ class RLProblem:
 
     def solve(self,
               logdir: Optional[str]=None,
+              num_cp_to_keep: str="all",
               evaluate: bool=True, 
               best_metric: str="episode_reward_mean",
               min_or_max: str="max",
@@ -160,8 +161,10 @@ class RLProblem:
 
         Args:
             logdir (str): name of the directory where training results are saved
+            num_cp_to_keep (str): number of checkpoints to keep. If "all", all checkpoints are kept, if "best", only the best checkpoint is kept
             evaluate (bool): whether to do evaluation
-            best_metric (str): metric to be used to determine the best checkpoint in exp_dir during evaluation
+            best_metric (str): metric to be used to determine the best checkpoint in exp_dir during evaluation.
+                It it is a number, that checkpoint will be used.
             min_or_max (str): if best_metric must be minimized or maximized
             postprocess (bool): whether to do postprocessing
             debug (bool): whether to print worker's logs.
@@ -182,6 +185,8 @@ class RLProblem:
             best_result, trainer_dir, best_exp_dir, last_checkpoint, run_time = training(trainer=self.trainer, 
                                                                             config=self.config, 
                                                                             stop=self.stop,
+                                                                            num_cp_to_keep=num_cp_to_keep,
+                                                                            evaluation_active=self.evaluation,
                                                                             logdir=logdir,
                                                                             load=self.load,
                                                                             debug=debug,
@@ -191,6 +196,8 @@ class RLProblem:
             best_result, trainer_dir, best_exp_dir, last_checkpoint = training(trainer=self.trainer, 
                                                                   config=self.config, 
                                                                   stop=self.stop,
+                                                                  num_cp_to_keep=num_cp_to_keep,
+                                                                  evaluation_active=self.evaluation,
                                                                   logdir=logdir,
                                                                   load=self.load,
                                                                   debug=debug,
@@ -203,6 +210,8 @@ class RLProblem:
         
         #Evaluation and Postprocessing
         if evaluate:
+            if num_cp_to_keep == "best":
+                best_metric = last_checkpoint
             exp_dirs, last_cps, best_cp_dir = self.evaluate(trainer_dir=trainer_dir,
                                                             exp_dir=best_exp_dir,
                                                             last_checkpoint=last_checkpoint,

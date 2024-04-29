@@ -16,6 +16,8 @@ import pyrlprob.utils.callbacks as callbacks
 def training(trainer: Union[str, Callable, Type], 
              config: Dict[str, Any], 
              stop: Dict[str, Any], 
+             num_cp_to_keep: str="all",
+             evaluation_active: bool=False,
              logdir: Optional[str]=None,
              create_out_file: bool=True, 
              load: Optional[Dict[str, Any]]=None, 
@@ -31,6 +33,8 @@ def training(trainer: Union[str, Callable, Type],
         trainer (str or callable): trainer (i.e., RL algorithm) to train the model with
         config (dict): config file (dictionary)
         stop (dict): stopping conditions (dictionary)
+        num_cp_to_keep (str): number of checkpoints to keep. If "all", all checkpoints are kept, if "best", only the best checkpoint is kept
+        evaluation_active (bool): whether evaluation is active
         logdir (str): name of the directory where training results are saved
         create_out_file (bool): whether to create an outfile with run time and best result
         load (dict): dictionary containing the directory and checkpoint where the 
@@ -47,7 +51,7 @@ def training(trainer: Union[str, Callable, Type],
         (optional) run_time (float): total run time
     """
 
-    #Create output folder
+    # Create output folder
     if load is not None:
         outdir = load["logdir"]
         restore = load["checkpoint_dir"]
@@ -59,7 +63,7 @@ def training(trainer: Union[str, Callable, Type],
         os.makedirs(outdir, exist_ok=True)
         restore = None
 
-    #Initialize ray
+    # Initialize ray
     if open_ray:
         if debug:
             logging_level = "INFO"
@@ -69,7 +73,21 @@ def training(trainer: Union[str, Callable, Type],
             log_to_driver=debug, 
             ignore_reinit_error=True)
     
-    #Train the model
+    # Checkpoint saving
+    if num_cp_to_keep == "all":
+        keep_checkpoints_num = None
+        checkpoint_score_attr = None
+    elif num_cp_to_keep == "best":
+        keep_checkpoints_num = 1
+        if evaluation_active:
+            checkpoint_score_attr = "evaluation/episode_reward_mean"
+        else:
+            checkpoint_score_attr = "episode_reward_mean"
+    else:
+        keep_checkpoints_num = None
+        checkpoint_score_attr = None
+
+    # Train the model
     start_time = time.time()
     analysis = tune.run(trainer,
                         config=config,
@@ -80,21 +98,26 @@ def training(trainer: Union[str, Callable, Type],
                         mode="max",
                         checkpoint_freq=1,
                         checkpoint_at_end=True,
-                        keep_checkpoints_num=None)
+                        keep_checkpoints_num=keep_checkpoints_num,
+                        checkpoint_score_attr=checkpoint_score_attr)
     end_time = time.time()
     run_time = end_time - start_time
 
-    #Last iteration stats
+    # Last iteration stats
     best_result = analysis.best_result
     last_result = analysis.get_best_trial("training_iteration", "max").last_result
     best_exp_dir = analysis.best_logdir
     trainer_dir = best_exp_dir[:best_exp_dir.rfind("/")+1]
     best_exp_dir = best_exp_dir + "/"
 
-    #Last checkpoint
-    last_checkpoint = last_result["training_iteration"]
-
-    #Run time per iter
+    # Last checkpoint
+    best_checkpoint_path = analysis.best_checkpoint
+    if num_cp_to_keep == "best":
+        last_checkpoint = int(best_checkpoint_path[best_checkpoint_path.rfind("-")+1:])
+    else:
+        last_checkpoint = last_result["training_iteration"]
+    
+    # Run time per iter
     run_time_per_iter = last_result["time_this_iter_s"]
 
     # Save elapsed time and results
@@ -110,12 +133,12 @@ def training(trainer: Union[str, Callable, Type],
                 best_result["episode_reward_min"]))
         f_out_res.close()
 
-    #Terminate ray
+    # Terminate ray
     if open_ray:
         ray.shutdown()
 
-    #Return trainer and best experiment directory + last checkpoint saved
-    #and the run time per iter
+    # Return trainer and best experiment directory + last checkpoint saved
+    # and the run time per iter
     if return_time:
         return best_result, trainer_dir, best_exp_dir, last_checkpoint, run_time_per_iter
     else:
@@ -152,7 +175,8 @@ def evaluation(trainer: Union[str, Callable, Type],
         evaluation_num_episodes (int): number of evaluation episodes
         evaluation_config (dict): dictionary containing the evaluation configs
         custom_eval_function (callable or str): Custom evaluation function (or function name)
-        best_metric (str): metric to be used to determine the best checkpoint in exp_dirs
+        best_metric (str): metric to be used to determine the best checkpoint in exp_dirs.
+            It it is a number, that checkpoint will be used.
         min_or_max (str): if best_metric must be minimized or maximized
         metrics_and_data (dict): dictionary containing the metrics and data to save
             in the new file progress.csv
@@ -167,14 +191,19 @@ def evaluation(trainer: Union[str, Callable, Type],
         metric_path = "evaluation/"
 
     if trainer_dir is not None:
-        # Determine the best checkpoint
-        best_metric_trend = metric_training_trend(metric_path + best_metric,
-                                            exp_dirs,
-                                            last_cps)
-        if min_or_max == "max":
-            best_cp = np.argmax(best_metric_trend)+1
+        # Check if best_metric is a number
+        best_metric = str(best_metric)
+        if best_metric.isdigit():
+            best_cp = int(best_metric)
         else:
-            best_cp = np.argmin(best_metric_trend)+1
+            # Get the best metric trend
+            best_metric_trend = metric_training_trend(metric_path + best_metric,
+                                                exp_dirs,
+                                                last_cps)
+            if min_or_max == "max":
+                best_cp = np.argmax(best_metric_trend)+1
+            else:
+                best_cp = np.argmin(best_metric_trend)+1
         best_exp = next(exp for exp, cp in enumerate(last_cps) if cp >= best_cp)
         best_exp_dir = exp_dirs[best_exp]
 

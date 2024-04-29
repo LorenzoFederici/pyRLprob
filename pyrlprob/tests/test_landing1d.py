@@ -97,7 +97,7 @@ def test_landing_env_train(py_or_cpp: str="py",
     #Config file
     __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
     if py_or_cpp == "py":
-        if model == "fcnet":
+        if model == "mlp":
             config = os.path.join(__location__, "landing1d_py.yaml")
         elif model == "lstm":
             config = os.path.join(__location__, "landing1d_lstm_py.yaml")
