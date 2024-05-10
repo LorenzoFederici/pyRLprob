@@ -127,12 +127,10 @@ def training(trainer: Union[str, Callable, Type],
     # Save elapsed time and results
     if create_out_file:
         f_out_res = open(best_exp_dir + "result.txt", "w")
-        f_out_res.write("%22s %22s %22s\n" \
-            % ("# elapsed time [s]", "training_iteration", \
-            best_metric))
-        f_out_res.write("%22.7f %22d %22.7f\n" \
-            % (run_time, best_result["training_iteration"], \
-                best_result[best_metric]))
+        f_out_res.write("%22s %22s\n" \
+            % ("# elapsed time [s]", "training_iteration"))
+        f_out_res.write("%22.7f %22d\n" \
+            % (run_time, best_result["training_iteration"]))
         f_out_res.close()
 
     # Terminate ray
