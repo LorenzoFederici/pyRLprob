@@ -36,10 +36,12 @@ class RLProblem:
         #Trainer definition
         if isinstance(settings["run"], dict):
             self.__method = settings["run"]["method"]
-            self.__algorithm = settings["run"]["algorithm"]
+            self.__algorithm = settings["run"]["algorithm"].upper()
+            default_config = self.__algorithm + "_DEFAULT_CONFIG"
         else:
             self.__method = settings["run"]
             self.__algorithm = self.__method.upper()
+            default_config = "DEFAULT_CONFIG"
         alg_module = importlib.import_module("ray.rllib.agents." + self.__method)
         self.trainer = getattr(alg_module, self.__algorithm + "Trainer")
 
@@ -47,7 +49,7 @@ class RLProblem:
         self.stop = settings["stop"]
 
         #Config definition
-        self.config = alg_module.DEFAULT_CONFIG.copy()
+        self.config = getattr(alg_module, default_config).copy()
         update(self.config, settings["config"])
 
         #Evironment definition
@@ -164,7 +166,6 @@ class RLProblem:
             num_cp_to_keep (str): number of checkpoints to keep. If "all", all checkpoints are kept, if "best", only the best checkpoint is kept
             evaluate (bool): whether to do evaluation
             best_metric (str): metric to be used to determine the best checkpoint in exp_dir during evaluation.
-                It it is a number, that checkpoint will be used.
             min_or_max (str): if best_metric must be minimized or maximized
             postprocess (bool): whether to do postprocessing
             debug (bool): whether to print worker's logs.
@@ -185,6 +186,8 @@ class RLProblem:
             best_result, trainer_dir, best_exp_dir, last_checkpoint, run_time = training(trainer=self.trainer, 
                                                                             config=self.config, 
                                                                             stop=self.stop,
+                                                                            best_metric=best_metric,
+                                                                            min_or_max=min_or_max,
                                                                             num_cp_to_keep=num_cp_to_keep,
                                                                             evaluation_active=self.evaluation,
                                                                             logdir=logdir,
@@ -196,6 +199,8 @@ class RLProblem:
             best_result, trainer_dir, best_exp_dir, last_checkpoint = training(trainer=self.trainer, 
                                                                   config=self.config, 
                                                                   stop=self.stop,
+                                                                  best_metric=best_metric,
+                                                                  min_or_max=min_or_max,
                                                                   num_cp_to_keep=num_cp_to_keep,
                                                                   evaluation_active=self.evaluation,
                                                                   logdir=logdir,

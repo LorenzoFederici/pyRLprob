@@ -16,6 +16,8 @@ import pyrlprob.utils.callbacks as callbacks
 def training(trainer: Union[str, Callable, Type], 
              config: Dict[str, Any], 
              stop: Dict[str, Any], 
+             best_metric: str="episode_reward_mean",
+             min_or_max: str="max",
              num_cp_to_keep: str="all",
              evaluation_active: bool=False,
              logdir: Optional[str]=None,
@@ -33,6 +35,8 @@ def training(trainer: Union[str, Callable, Type],
         trainer (str or callable): trainer (i.e., RL algorithm) to train the model with
         config (dict): config file (dictionary)
         stop (dict): stopping conditions (dictionary)
+        best_metric (str): metric to be used to determine the best result.
+        min_or_max (str): if best_metric must be minimized or maximized
         num_cp_to_keep (str): number of checkpoints to keep. If "all", all checkpoints are kept, if "best", only the best checkpoint is kept
         evaluation_active (bool): whether evaluation is active
         logdir (str): name of the directory where training results are saved
@@ -80,9 +84,9 @@ def training(trainer: Union[str, Callable, Type],
     elif num_cp_to_keep == "best":
         keep_checkpoints_num = 1
         if evaluation_active:
-            checkpoint_score_attr = "evaluation/episode_reward_mean"
+            checkpoint_score_attr = "evaluation/" + best_metric
         else:
-            checkpoint_score_attr = "episode_reward_mean"
+            checkpoint_score_attr = best_metric
     else:
         keep_checkpoints_num = None
         checkpoint_score_attr = None
@@ -94,8 +98,8 @@ def training(trainer: Union[str, Callable, Type],
                         local_dir=outdir,
                         restore=restore,
                         stop=stop,
-                        metric="episode_reward_mean",
-                        mode="max",
+                        metric=best_metric,
+                        mode=min_or_max,
                         checkpoint_freq=1,
                         checkpoint_at_end=True,
                         keep_checkpoints_num=keep_checkpoints_num,
@@ -123,14 +127,12 @@ def training(trainer: Union[str, Callable, Type],
     # Save elapsed time and results
     if create_out_file:
         f_out_res = open(best_exp_dir + "result.txt", "w")
-        f_out_res.write("%22s %22s %22s %22s %22s\n" \
+        f_out_res.write("%22s %22s %22s\n" \
             % ("# elapsed time [s]", "training_iteration", \
-            "episode_reward_mean", "episode_reward_max", "episode_reward_min"))
-        f_out_res.write("%22.7f %22d %22.7f %22.7f %22.7f\n" \
+            best_metric))
+        f_out_res.write("%22.7f %22d %22.7f\n" \
             % (run_time, best_result["training_iteration"], \
-                best_result["episode_reward_mean"], \
-                best_result["episode_reward_max"], \
-                best_result["episode_reward_min"]))
+                best_result[best_metric]))
         f_out_res.close()
 
     # Terminate ray
