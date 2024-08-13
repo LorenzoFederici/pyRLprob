@@ -330,7 +330,8 @@ def postprocessing(best_exp_dir: str,
     #Remove from metrics_and_data the metrics that are not in progress.csv
     for key in ["episode_step_data", "episode_end_data"]:
         metrics_and_data[key] = [metric for metric in metrics_and_data[key] if column_progress(best_exp_dir+"progress.csv", metric_path + "hist_stats/" + metric) != None]
-    metrics_and_data["custom_metrics"] = [metric for metric in metrics_and_data["custom_metrics"] if column_progress(best_exp_dir+"progress.csv", metric_path + "custom_metrics/" + metric + "_mean") != None]
+    metrics_and_data["custom_metrics"] = [metric for metric in metrics_and_data["custom_metrics"] if \
+                                          column_progress(best_exp_dir+"progress.csv", metric_path + "custom_metrics/" + metric + "_mean") != None]
     
     #Metrics and data to log
     values = ["min", "mean", "max"]
